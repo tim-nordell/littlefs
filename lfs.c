@@ -4925,7 +4925,7 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             cfg->read_buffer, cfg->prog_buffer, cfg->lookahead_buffer,
             cfg->name_max, cfg->file_max, cfg->attr_max);
 
-    err = lfs_rawmount(lfs, cfg);
+    //err = lfs_rawmount(lfs, cfg);
 
     LFS_TRACE("lfs_mount -> %d", err);
     LFS_UNLOCK(cfg);
