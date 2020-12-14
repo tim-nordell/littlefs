@@ -45,6 +45,10 @@ typedef int32_t  lfs_soff_t;
 
 typedef uint32_t lfs_block_t;
 
+#ifdef LFS_STATICCFG_HEADER
+#include LFS_STATICCFG_HEADER
+#endif
+
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
@@ -152,110 +156,180 @@ enum lfs_whence_flags {
     LFS_SEEK_END = 2,   // Seek relative to the end of the file
 };
 
+#if defined(LFS_STATICCFG_CONTEXT)          \
+    && defined(LFS_STATICCFG_FN_READ)          \
+    && defined(LFS_STATICCFG_FN_PROG)          \
+    && defined(LFS_STATICCFG_FN_ERASE)         \
+    && defined(LFS_STATICCFG_FN_SYNC)          \
+    && defined(LFS_STATICCFG_READ_SIZE)        \
+    && defined(LFS_STATICCFG_PROG_SIZE)        \
+    && defined(LFS_STATICCFG_BLOCK_SIZE)       \
+    && defined(LFS_STATICCFG_BLOCK_COUNT)      \
+    && defined(LFS_STATICCFG_BLOCK_CYCLES)     \
+    && defined(LFS_STATICCFG_CACHE_SIZE)       \
+    && defined(LFS_STATICCFG_LOOKAHEAD_SIZE)   \
+    && defined(LFS_STATICCFG_READ_BUFFER)      \
+    && defined(LFS_STATICCFG_PROG_BUFFER)      \
+    && defined(LFS_STATICCFG_LOOKAHEAD_BUFFER) \
+    && defined(LFS_STATICCFG_NAME_MAX)         \
+    && defined(LFS_STATICCFG_FILE_MAX)         \
+    && defined(LFS_STATICCFG_ATTR_MAX)         \
+    && (!defined(LFS_THREADSAFE) ||            \
+       (defined(LFS_STATICCFG_FN_LOCK)         \
+        && defined(LFS_STATICCFG_FN_UNLOCK)))
+
+#define LFS_CONFIG_IS_EMPTY
+
+#endif
 
 // Configuration provided during initialization of the littlefs
 struct lfs_config {
+#ifdef LFS_CONFIG_IS_EMPTY
+    uint32_t dummy;
+#else
+#ifndef LFS_STATICCFG_CONTEXT
     // Opaque user provided context that can be used to pass
     // information to the block device operations
     void *context;
+#endif
 
+#ifndef LFS_STATICCFG_FN_READ
     // Read a region in a block. Negative error codes are propogated
     // to the user.
     int (*read)(const struct lfs_config *c, lfs_block_t block,
             lfs_off_t off, void *buffer, lfs_size_t size);
+#endif
 
+#ifndef LFS_STATICCFG_FN_PROG
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
     int (*prog)(const struct lfs_config *c, lfs_block_t block,
             lfs_off_t off, const void *buffer, lfs_size_t size);
+#endif
 
+#ifndef LFS_STATICCFG_FN_ERASE
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propogated to the user.
     // May return LFS_ERR_CORRUPT if the block should be considered bad.
     int (*erase)(const struct lfs_config *c, lfs_block_t block);
+#endif
 
+#ifndef LFS_STATICCFG_FN_SYNC
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
     int (*sync)(const struct lfs_config *c);
+#endif
 
 #ifdef LFS_THREADSAFE
+#ifndef LFS_STATICCFG_FN_LOCK
     // Lock the underlying block device. Negative error codes
     // are propogated to the user.
     int (*lock)(const struct lfs_config *c);
+#endif
 
+#ifndef LFS_STATICCFG_FN_UNLOCK
     // Unlock the underlying block device. Negative error codes
     // are propogated to the user.
     int (*unlock)(const struct lfs_config *c);
 #endif
+#endif
 
+#ifndef LFS_STATICCFG_READ_SIZE
     // Minimum size of a block read. All read operations will be a
     // multiple of this value.
     lfs_size_t read_size;
+#endif
 
+#ifndef LFS_STATICCFG_PROG_SIZE
     // Minimum size of a block program. All program operations will be a
     // multiple of this value.
     lfs_size_t prog_size;
+#endif
 
+#ifndef LFS_STATICCFG_BLOCK_SIZE
     // Size of an erasable block. This does not impact ram consumption and
     // may be larger than the physical erase size. However, non-inlined files
     // take up at minimum one block. Must be a multiple of the read
     // and program sizes.
     lfs_size_t block_size;
+#endif
 
+#ifndef LFS_STATICCFG_BLOCK_COUNT
     // Number of erasable blocks on the device.
     lfs_size_t block_count;
+#endif
 
-    // Number of erase cycles before littlefs evicts metadata logs and moves 
+#ifndef LFS_STATICCFG_BLOCK_CYCLES
+    // Number of erase cycles before littlefs evicts metadata logs and moves
     // the metadata to another block. Suggested values are in the
     // range 100-1000, with large values having better performance at the cost
     // of less consistent wear distribution.
     //
     // Set to -1 to disable block-level wear-leveling.
     int32_t block_cycles;
+#endif
 
+#ifndef LFS_STATICCFG_CACHE_SIZE
     // Size of block caches. Each cache buffers a portion of a block in RAM.
     // The littlefs needs a read cache, a program cache, and one additional
     // cache per file. Larger caches can improve performance by storing more
     // data and reducing the number of disk accesses. Must be a multiple of
     // the read and program sizes, and a factor of the block size.
     lfs_size_t cache_size;
+#endif
 
+#ifndef LFS_STATICCFG_LOOKAHEAD_SIZE
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation pass. The
     // lookahead buffer is stored as a compact bitmap, so each byte of RAM
     // can track 8 blocks. Must be a multiple of 8.
     lfs_size_t lookahead_size;
+#endif
 
+#ifndef LFS_STATICCFG_READ_BUFFER
     // Optional statically allocated read buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
     void *read_buffer;
+#endif
 
+#ifndef LFS_STATICCFG_PROG_BUFFER
     // Optional statically allocated program buffer. Must be cache_size.
     // By default lfs_malloc is used to allocate this buffer.
     void *prog_buffer;
+#endif
 
+#ifndef LFS_STATICCFG_LOOKAHEAD_BUFFER
     // Optional statically allocated lookahead buffer. Must be lookahead_size
     // and aligned to a 32-bit boundary. By default lfs_malloc is used to
     // allocate this buffer.
     void *lookahead_buffer;
+#endif
 
+#ifndef LFS_STATICCFG_NAME_MAX
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
     // the LFS_NAME_MAX define. Defaults to LFS_NAME_MAX when zero. Stored in
     // superblock and must be respected by other littlefs drivers.
     lfs_size_t name_max;
+#endif
 
+#ifndef LFS_STATICCFG_FILE_MAX
     // Optional upper limit on files in bytes. No downside for larger files
     // but must be <= LFS_FILE_MAX. Defaults to LFS_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
     lfs_size_t file_max;
+#endif
 
+#ifndef LFS_STATICCFG_ATTR_MAX
     // Optional upper limit on custom attributes in bytes. No downside for
     // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
     // LFS_ATTR_MAX when zero.
     lfs_size_t attr_max;
+#endif
+
+#endif /* LFS_CONFIG_IS_EMPTY */
 };
 
 // File info structure
@@ -681,6 +755,238 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
 #endif
 #endif
 
+// Opaque user provided context that can be used to pass
+// information to the block device operations
+static inline void *lfs_cfg_context(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_CONTEXT
+    return lfs->cfg->context;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_CONTEXT;
+#endif
+}
+
+static inline int lfs_cfg_fn_read(lfs_t *lfs, lfs_block_t block,
+            lfs_off_t off, void *buffer, lfs_size_t size) {
+#ifndef LFS_STATICCFG_FN_READ
+    return lfs->cfg->read(lfs->cfg, block, off, buffer, size);
+#else
+    return LFS_STATICCFG_FN_READ(lfs->cfg, block, off, buffer, size);
+#endif
+}
+
+static inline int lfs_cfg_fn_prog(lfs_t *lfs, lfs_block_t block,
+            lfs_off_t off, const void *buffer, lfs_size_t size) {
+#ifndef LFS_STATICCFG_FN_PROG
+    return lfs->cfg->prog(lfs->cfg, block, off, buffer, size);
+#else
+    return LFS_STATICCFG_FN_PROG(lfs->cfg, block, off, buffer, size);
+#endif
+}
+
+static inline int lfs_cfg_fn_erase(lfs_t *lfs, lfs_block_t block) {
+#ifndef LFS_STATICCFG_FN_ERASE
+    return lfs->cfg->erase(lfs->cfg, block);
+#else
+    return LFS_STATICCFG_FN_ERASE(lfs->cfg, block);
+#endif
+}
+
+static inline int lfs_cfg_fn_sync(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_FN_SYNC
+    return lfs->cfg->sync(lfs->cfg);
+#else
+    return LFS_STATICCFG_FN_SYNC(lfs->cfg);
+#endif
+}
+
+static inline int lfs_cfg_fn_lock(lfs_t *lfs) {
+#ifndef LFS_THREADSAFE
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return 0;
+#elif !defined(LFS_STATICCFG_FN_LOCK)
+    return lfs->cfg->lock(lfs->cfg);
+#else
+    return LFS_STATICCFG_FN_LOCK(lfs->cfg);
+#endif
+}
+
+static inline int lfs_cfg_fn_unlock(lfs_t *lfs) {
+#ifndef LFS_THREADSAFE
+    // Make
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return 0;
+#elif !defined(LFS_STATICCFG_FN_UNLOCK)
+    return lfs->cfg->unlock();
+#else
+    return LFS_STATICCFG_FN_UNLOCK(c);
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_read_size(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_READ_SIZE
+    return lfs->cfg->read_size;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_READ_SIZE;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_prog_size(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_PROG_SIZE
+    return lfs->cfg->prog_size;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_PROG_SIZE;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_block_size(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_BLOCK_SIZE
+    return lfs->cfg->block_size;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_BLOCK_SIZE;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_block_count(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_BLOCK_COUNT
+    return lfs->cfg->block_count;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_BLOCK_COUNT;
+#endif
+}
+
+static inline uint32_t lfs_cfg_block_cycles(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_BLOCK_CYCLES
+    return lfs->cfg->block_cycles;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_BLOCK_CYCLES;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_cache_size(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_CACHE_SIZE
+    return lfs->cfg->cache_size;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_CACHE_SIZE;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_lookahead_size(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_LOOKAHEAD_SIZE
+    return lfs->cfg->lookahead_size;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_LOOKAHEAD_SIZE;
+#endif
+}
+
+static inline void *lfs_cfg_read_buffer(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_READ_BUFFER
+    return lfs->cfg->read_buffer;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_READ_BUFFER;
+#endif
+}
+
+static inline void *lfs_cfg_prog_buffer(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_PROG_BUFFER
+    return lfs->cfg->prog_buffer;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_PROG_BUFFER;
+#endif
+}
+
+static inline void *lfs_cfg_lookahead_buffer(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_LOOKAHEAD_BUFFER
+    return lfs->cfg->lookahead_buffer;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_LOOKAHEAD_BUFFER;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_name_max(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_NAME_MAX
+    return lfs->cfg->name_max;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_NAME_MAX;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_file_max(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_FILE_MAX
+    return lfs->cfg->file_max;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_FILE_MAX;
+#endif
+}
+
+static inline lfs_size_t lfs_cfg_attr_max(lfs_t *lfs) {
+#ifndef LFS_STATICCFG_ATTR_MAX
+    return lfs->cfg->attr_max;
+#else
+    if(0)
+    {
+        lfs = lfs;
+    }
+    return LFS_STATICCFG_ATTR_MAX;
+#endif
+}
 
 #ifdef __cplusplus
 } /* extern "C" */
